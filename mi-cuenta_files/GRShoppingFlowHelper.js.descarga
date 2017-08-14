@@ -1,0 +1,393 @@
+//-----------------------------------------------------------------
+// Licensed Materials - Property of IBM
+//
+// WebSphere Commerce
+//
+// (C) Copyright IBM Corp. 2008, 2009 All Rights Reserved.
+//
+// US Government Users Restricted Rights - Use, duplication or
+// disclosure restricted by GSA ADP Schedule Contract with
+// IBM Corp.
+//-----------------------------------------------------------------
+
+/**
+* @fileOverview This JavaScript file contains functions used by the Gift Registry features available during
+* in shopping flow pages like Product/Item display, shipping and billing pages, checkOut pages.
+*/
+
+//declare the namespace if it does not already exist
+
+if (GRShoppingFlowHelperJS == null || typeof(GRShoppingFlowHelperJS) != "object") {
+	var GRShoppingFlowHelperJS = new Object();
+}
+
+GRShoppingFlowHelperJS = {
+
+    buyForRegistryExternalId:"", /* The current registry Id to which shopper can buy item */
+	addToregistryExternalId:"", /* The current registry Id to which shopper can add item */
+	/** 
+	 * This variable stores the current addToDropdown dialog element. 
+	 * @private
+	 */
+	addToDropdownDlg : null,
+
+	/** 
+	 * This variable stores the current buyForDropdown dialog element. 
+	 * @private
+	 */
+	buyForDropdownDlg : null,
+
+	/**
+	 * Sets the registry Id to which shopper can buy gift for.
+	 * @param (String) Registry Id.
+	 */
+	setBuyForRegistryExternalId:function(externalId){
+		this.buyForRegistryExternalId = externalId;
+	},
+
+	/**
+	 * Sets the registry Id to which shopper can add item.
+	 * @param (String) Registry Id.
+	 */
+	setAddToRegistryExternalId:function(externalId){
+		this.addToregistryExternalId = externalId;
+	},
+
+	/**
+	* Toggles the display of add list of registries. The 'node' will be opened if it's already closed and vice-versa
+	* @param (String) relativeNode Node arround which the drop down has to be displayed.
+	* @param (String) contentNode Content of the Node to be displayed.
+	* @param (String) event action event.
+	*/
+	showAddToRegistryList:function(relativeNode,contentNode,event){
+		//Calculate the X and Y co-ordinates for the dialog. We don't want it to be at the center of the screen.
+		var c = dojo.coords(dojo.byId(relativeNode),true);
+		var x1 = c.x; 
+		var y1 = c.y;
+		if (dojo.locale == 'iw-il' || dojo.locale=='ar-eg') {
+			x1 = c.w + c.x;
+		}
+		
+		/* Dialog is not yet created..Create one */
+		if(!this.addToDropdownDlg){			
+			var pane = document.getElementById(contentNode);
+			this.addToDropdownDlg= new wc.widget.WCDialog({relatedSource: relativeNode, x:x1,y:y1,id:'addToRegistryListPopup'},pane);
+		}
+		this.addToDropdownDlg.x=x1;
+		this.addToDropdownDlg.y = y1 + c.h;
+		this.addToDropdownDlg.show();
+		this.addToDropdownDlg.cancelCloseOnTimeOut();
+		if(dijit.byId("second_level_category_popup")!=null && dijit.byId("second_level_category_popup")!=undefined){
+			dojo.connect(dijit.byId("second_level_category_popup"), 'hide', GRShoppingFlowHelperJS.addToDropdownDlg ,'hide');
+			dojo.connect(window, 'onscroll', GRShoppingFlowHelperJS.addToDropdownDlg ,'hide');
+			dojo.style(this.addToDropdownDlg.domNode,'zIndex',2);
+			dojo.style('second_level_category_popup','zIndex',1); //bring the quick info popup zindex down so that it's behind the panel
+		}
+		this.showCheckMark('addToRegistryCheckmark_'+this.addToregistryExternalId,"addToRegistryListPopup");
+	},
+
+	/**
+	* Toggles the display of buy list of registries. The 'node' will be opened if it's already closed and vice-versa
+	* @param (String) relativeNode Node arround which the drop down has to be displayed.
+	* @param (String) contentNode Content of the Node to be displayed.
+	* @param (String) event action event.
+	*/
+	showBuyForRegistryList:function(relativeNode,contentNode,event){
+		//Calculate the X and Y co-ordinates for the dialog. We don't want it to be at the center of the screen.
+		var c = dojo.coords(dojo.byId(relativeNode),true);
+		var x1 = c.x; 
+		var y1 = c.y;
+		if (dojo.locale == 'iw-il' || dojo.locale=='ar-eg') {
+			x1 = c.w + c.x;
+		}
+		
+		/* Dialog is not yet created..Create one */
+		if(!this.buyForDropdownDlg){	
+			var pane = document.getElementById(contentNode);
+			this.buyForDropdownDlg= new wc.widget.WCDialog({relatedSource: relativeNode, x:x1,y:y1,id:'buyForRegistryListPopup'},pane);
+		}
+		this.buyForDropdownDlg.x = x1;
+		this.buyForDropdownDlg.y = y1 + c.h - 3;
+		this.buyForDropdownDlg.show();
+		this.buyForDropdownDlg.cancelCloseOnTimeOut();
+		if(dijit.byId("second_level_category_popup")!=null && dijit.byId("second_level_category_popup")!=undefined){
+			dojo.connect(dijit.byId("second_level_category_popup"), 'hide', GRShoppingFlowHelperJS.buyForDropdownDlg ,'hide');
+			dojo.connect(window, 'onscroll', GRShoppingFlowHelperJS.buyForDropdownDlg ,'hide');
+			dojo.style(this.buyForDropdownDlg.domNode,'zIndex',951);
+		//	dojo.style('second_level_category_popup','zIndex',1); //bring the quick info popup zindex down so that it's behind the panel
+		}
+		this.showCheckMark('buyForRegistryCheckmark_'+this.buyForRegistryExternalId,"buyForRegistryListPopup");
+	},
+
+	/**
+	* Updates the innerHTML of the span element with the new text passed
+	* @param (String) spanId - id of the span element
+	* @param (String) text - New text to be set for this span element
+	* @param (String) registryAction - specifies whether it is add to registry or buy for registry.
+	*/
+	updateButtonText:function(spanId,text,registryAction){
+		dojo.byId(spanId).innerHTML = text;
+		if(registryAction=='addToRegistry'){
+			if(this.addToDropdownDlg!=null){
+				this.addToDropdownDlg.hide();
+			}
+		}else if(registryAction=='buyForRegistry'){
+			if(this.buyForDropdownDlg!=null){
+				this.buyForDropdownDlg.hide();
+			}
+		}
+		
+	},
+
+	/**
+	* Handler for the event for adding item to registry. Verifies that the quantity entered is valid, verifies
+	* the shopper has selected all the attributes and then calls function to add item to the current registry id 
+	* identified by addToregistryExternalId parameter. On error, displays appropriate error message using MessageHelper
+	*/
+	addItemToRegistryHandler:function(){
+		var catalogEntryId;
+		var quantity;
+		var catEntryType;
+		var catEntryId;
+		if(dojo.byId("catalogEntryPage")!=null && document.getElementById("catalogEntryPage")!=undefined){
+			if(dojo.byId("catalogEntryPage").value=="quickInfoDialog"){
+				if(dojo.byId("productPopUpQty")!=null && dojo.byId("productPopUpQty")!=undefined){
+					quantity=dojo.byId("productPopUpQty").value;
+				}
+				if(dojo.byId("productIdQuickInfo")!=null && dojo.byId("productIdQuickInfo")!=undefined){
+					catEntryId=dojo.byId("productIdQuickInfo").innerHTML;
+				}
+				if(dojo.byId("catalogEntryTypeCode")!=null && dojo.byId("catalogEntryTypeCode")!=undefined){
+					if(dojo.byId("catalogEntryTypeCode").value=="ProductBean"){
+						catEntryType="product";
+					}else if(dojo.byId("catalogEntryTypeCode").value=="ItemBean"){
+						catEntryType="item";	
+					}
+				}
+		
+			}else{
+				quantity=dojo.byId("quantity_"+dojo.byId("entitledItem_catalogEntryID").value).value;
+				catEntryId=dojo.byId("entitledItem_catalogEntryID").value;
+				if(dojo.byId("catalogEntryPage").value=="productPage"){
+					catEntryType="product";
+				}else if (dojo.byId("catalogEntryPage").value=="itemPage"){
+					catEntryType="item";
+				}
+			}			
+		}
+
+		if(catEntryType=="product"){
+			catalogEntryId = this.getCatalogEntryId(catEntryId);
+		}else if(catEntryType=="item"){
+			catalogEntryId = catEntryId;
+		}
+		if(!isPositiveInteger(quantity)){
+			MessageHelper.displayErrorMessage(MessageHelper.messages['QUANTITY_INPUT_ERROR']);
+			return;
+		}
+
+		if(catalogEntryId != null){
+			if(catEntryType == "product" && catEntryId == catalogEntryId){
+				var parameters = [];
+				parameters.productId = catEntryId;
+				parameters.storeId = GRCommonUtilsJS.storeId;
+				parameters.catalogId = GRCommonUtilsJS.catalogId;
+				parameters.langId = GRCommonUtilsJS.langId;
+				
+				dojo.xhrPost({
+						url: "resolveItemID",
+						handleAs: "json",
+						content: parameters,
+						service: this,
+						load: function(response){
+							GRShoppingFlowHelperJS.AddItem2RegistryAjax(response.itemID,quantity,GRShoppingFlowHelperJS.addToregistryExternalId);
+						},
+						error: function(errObj,ioArgs) {
+							console.debug("error - inside GRShoppingFlowHelperJS.addItemToRegistryHandler()");
+							console.debug(errObj);
+						}
+				});
+			}
+			else {
+				this.AddItem2RegistryAjax(catalogEntryId,quantity,this.addToregistryExternalId);
+			}
+			hidePopup('second_level_category_popup');
+		}
+		else{
+			MessageHelper.displayErrorMessage(MessageHelper.messages['ERR_RESOLVING_SKU']);
+		}
+	},
+
+	/**
+	* Invokes service to add item into shoppers registry
+	* @param (String) catEntryIdentifier - catentry id to be added to the registry
+	* @param (String) quantity - Qty requested
+	* @param (String) externalId - Registry Id to which this item needs to be added
+	*/
+
+	AddItem2RegistryAjax:function(catEntryIdentifier,quantity,externalId){
+		var params = [];
+		params.storeId		= GRCommonUtilsJS.storeId;
+		params.catalogId	= GRCommonUtilsJS.catalogId;
+		params.langId		= GRCommonUtilsJS.langId;
+		params.catEntryId	= catEntryIdentifier;
+		params.quantity		= quantity;
+		params.externalId = externalId;
+
+		//For Handling multiple clicks
+		if(!submitRequest()){
+			return;
+		}   
+		cursor_wait();		
+		wc.service.invoke("AjaxAddOrderItemToGiftRegistry", params);
+		//TODO - why we need this..
+		if(document.getElementById("headerShopCartLink")){
+			if(document.getElementById("headerShopCartLink").style.display != "none"){
+				document.getElementById("headerShopCart").focus();
+			}else{
+				document.getElementById("headerShopCart1").focus();
+			}
+		}
+
+	},
+
+	/**
+	* Handler for the event for buying item to registry. Verifies that the quantity entered is valid. If valid
+	* invokes Add2ShopCartAjax function defined in base store to add this item to shopping cart and mark this
+	* as bought for gift registry (by passing registryId as customParam) to Add2ShopCartAjax function
+	*/
+	buyItemForRegistryHandler:function(){
+		var quantity;
+		var catEntryId;
+		var catEntryType;
+		if(dojo.byId("catalogEntryPage")!=null && document.getElementById("catalogEntryPage")!=undefined){
+			if(dojo.byId("catalogEntryPage").value=="quickInfoDialog"){
+				if(dojo.byId("productPopUpQty")!=null && dojo.byId("productPopUpQty")!=undefined){
+					quantity=dojo.byId("productPopUpQty").value;
+				}
+				if(dojo.byId("productIdQuickInfo")!=null && dojo.byId("productIdQuickInfo")!=undefined){
+					catEntryId=dojo.byId("productIdQuickInfo").innerHTML;
+				}
+				if(dojo.byId("catalogEntryTypeCode")!=null && dojo.byId("catalogEntryTypeCode")!=undefined){
+					if(dojo.byId("catalogEntryTypeCode").value=="ProductBean"){
+						catEntryType="product";
+					}else if(dojo.byId("catalogEntryTypeCode").value=="ItemBean"){
+						catEntryType="item";	
+					}
+				}
+		
+			}else{
+				quantity=dojo.byId("quantity_"+dojo.byId("entitledItem_catalogEntryID").value).value;
+				catEntryId=dojo.byId("entitledItem_catalogEntryID").value;
+				if(dojo.byId("catalogEntryPage").value=="productPage"){
+					catEntryType="product";
+				}else if (dojo.byId("catalogEntryPage").value=="itemPage"){
+					catEntryType="item";
+				}
+			}			
+		}
+		var customParams = [];
+		customParams['externalId'] = this.buyForRegistryExternalId;
+			cursor_wait();	
+			if(catEntryType=="product"){
+				categoryDisplayJS.Add2ShopCartAjax('entitledItem_'+catEntryId,quantity, false,customParams);
+				}else if(catEntryType=="item"){
+				categoryDisplayJS.AddItem2ShopCartAjax(catEntryId , quantity,customParams);
+			}
+	},
+
+
+	/**
+	* Resolves the catalog entry Id, based on the attribute selection made by the shopper and making use
+	* of base store getCatalogEntryId function.
+	* @param (String) catalogEntryId - catalog entry id of the product
+	* @return (String) - Resolved catalog entry Id.
+	*/
+	getCatalogEntryId:function(catalogEntryId){
+
+		var entitledItemJSON;
+		var entitledItemId = "entitledItem_"+catalogEntryId;
+		if (dojo.byId(entitledItemId)!=null) {
+			//the json object for entitled items are already in the HTML. 
+			 entitledItemJSON = eval('('+ dojo.byId(entitledItemId).innerHTML +')');
+			 
+		}else{
+			//if dojo.byId(entitledItemId) is null, that means there's no <div> in the HTML that contains the JSON object. 
+			//in this case, it must have been set in catalogentryThumbnailDisplay.js when the quick info
+			entitledItemJSON = categoryDisplayJS.getEntitledItemJsonObject(); 
+		}
+		categoryDisplayJS.setEntitledItems(entitledItemJSON);
+		return categoryDisplayJS.getCatalogEntryId();
+	},
+
+	/**
+	* This will show/hides the check mark aganist the selected gift registry drop down in product page.
+	* @param (String) enableImageId - ID of the image (check mark) corresponds to the selected gift registry link in drop down list.
+	* @param (String) dialogId - ID of the dialog element which contains the registry links in drop down list.
+	*/
+	showCheckMark:function(enableImageId,dialogId){
+		if(document.getElementById(dialogId)!=null && document.getElementById(dialogId) != undefined){
+			var linkImg = document.getElementById(dialogId).getElementsByTagName("img");
+			if(linkImg!=null && linkImg!=undefined){
+				for(var i=0;i<linkImg.length;i++){
+					if(linkImg[i].id == enableImageId){
+						linkImg[i].style.display='block';
+					}else{
+						linkImg[i].style.display='none';
+					}
+				}
+			}
+		}
+	},
+
+	/** 
+	* This function will display the gift item popup dialog which will have registrant name and registry event.
+	* @param (String) targetId - Id of the div element around which the popup dialog needs to be displayed.
+	* @param (String) registrantName - The name of the registrant of the gift registry for which the item is brought in shopping cart.
+	* @params (String) registryEvent - The name of the gift registry event corresponding to the gift item brought.
+	* @params (event) event The keystroke event entered by the user. (Currently this is not used in this function.It may be used in future).
+	*/
+
+	showGiftItemInfoPopup:function(targetId,registrantName,registryEvent,event){
+		if(dojo.byId('giftItemInfoPopup')!=null && dojo.byId('giftItemInfoPopup')!=undefined){
+			dijit.byId('giftItemInfoPopup').closeButtonNode.style.display='none';
+			closeAllDialogs(); // close all dijit.dialogs first
+			dijit.byId('giftItemInfoPopup').show();
+			// hides the DialogUnderlayWrapper component, the component that grays out the screen behind,
+			// as we do not want the background to be greyed out
+			dojo.query('.dijitDialogUnderlayWrapper', document).forEach(function(tag) {		
+				tag.style.display='none';
+			});		
+			var popupView = dojo.byId('giftItemInfoPopup');
+			if(targetId != null){
+				if(dojo.byId('giftRegistrantName')!=null && dojo.byId('giftRegistrantName')!=undefined){
+					dojo.byId('giftRegistrantName').innerHTML = registrantName;
+				}
+				if(dojo.byId('giftRegistryEvent')!=null && dojo.byId('giftRegistryEvent')!=undefined){
+					dojo.byId('giftRegistryEvent').innerHTML = registryEvent;
+				}
+				if(dojo.isIE <= 7){
+					popupView.setAttribute('className', 'mpopup1_main mpopup1_display');
+				}else {
+					popupView.setAttribute('class', 'mpopup1_main mpopup1_display');
+				}
+			}
+		}
+	},
+	
+	/** 
+	* This function will hides the gift item popup dialog.
+	*/
+	closeGiftItemInfo:function(){
+		if(dojo.byId('giftItemInfoPopup')!=null && dojo.byId('giftItemInfoPopup')!=undefined){
+			var popupView = dojo.byId('giftItemInfoPopup');
+			if(dojo.byId('giftItemInfoPopup')!=null && dojo.byId('giftItemInfoPopup')!=undefined){
+				if(dojo.isIE <= 7){
+					popupView.setAttribute('className', 'mpopup1_main mpopup1_hide');
+				}else {
+					popupView.setAttribute('class', 'mpopup1_main mpopup1_hide');
+				}
+			}
+		}
+	}
+}

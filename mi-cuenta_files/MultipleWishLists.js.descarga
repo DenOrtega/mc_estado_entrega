@@ -1,0 +1,919 @@
+//-----------------------------------------------------------------
+// Licensed Materials - Property of IBM
+//
+// WebSphere Commerce
+//
+// (C) Copyright IBM Corp. 2010 All Rights Reserved.
+//
+// US Government Users Restricted Rights - Use, duplication or
+// disclosure restricted by GSA ADP Schedule Contract with
+// IBM Corp.
+//-----------------------------------------------------------------
+
+MultipleWishLists = {
+		
+	/** 
+	 * This variable stores the current dropdown dialog element. 
+	 * @private
+	 */
+	dropDownDlg: null,
+	
+	/**  
+	 * indicate whether the my account page is in ajax mode or not. Default is false 
+	 * @private
+	 */
+	 ajaxMyAccountPage: false,
+	
+	/**
+	 * indicate whether add item to wish list, create wish list should be in ajax or not
+	 * @private
+	 */
+	 ajaxAddToCart:true,
+	 
+	 /**
+	 * indicate whether create wish list action was specified from a product or quick view page, versus MyAccount
+	 * @private
+	 */
+	 createFromMyAccount:true,
+
+	/** 
+	 * This variable stores the ID of the language that the store currently uses. Its default value is set to -1, which corresponds to United States English.
+	 * @private
+	 */
+	langId: "-1",
+	
+	/** 
+	 * This variable stores the ID of the current store. Its default value is empty.
+	 * @private
+	 */
+	storeId: "",
+	
+	/** 
+	 * This variable stores the ID of the catalog. Its default value is empty.
+	 * @private
+	 */
+	catalogId: "",	
+
+	/**
+	 * saves the current catalog entry id
+	 * @private
+	 */
+	catEntryId:null,
+	
+	/**
+	 * saves the type of the catalog entry. It can be either product,item,bundle or package.
+	 * @private
+	 */
+	type:null,
+	
+	/**
+	 * indicate whether the function calls are from the quick info popup or not
+	 * @private
+	 */
+	 isFromQuickInfo: false,
+	 
+	 /**
+	  * indicate whether a popup should be shown after a wish list is created
+	  * @private
+	  * disablePopups: false,
+	  */
+	 
+	 /**
+	  * indicate whether the user is authenticated or not
+	  * @private
+	  */
+	  isAuthenticated: false,
+	
+	 /**
+	  * variable that stores the default gift list ID
+	  * @private
+	  */
+	  defaultListId: null,
+	  
+	 /**
+	  * indicate whether or not an item should be added after the wish list is created. 
+	  * @private
+	  */ 
+	  addItemAfterCreate:false,	  
+	  
+	  /**
+	   * indicate whether or not the list will be set as default after an item is added.
+	   * @private
+	   */
+	   addItemAndSetListDefault:false,
+	  
+	  /**
+	  * stores the preferred default wish list name
+	  * @private
+	  */ 
+	  preferredDefaultWishListName:"",
+	  
+	  /**
+	  * stores the wish list prefix
+	  * @private
+	  */ 
+	  wishListPrefix: "",
+
+	  /**
+	  * Indicates whether to update wish list display context after switching to a new wish list
+	  */
+	  updateAfterSwitch: false,
+	  	  
+	  /**
+	   * This is the variable that controls how many characters from the wish list name are displayed before dots are added as suffix
+	   * @private
+	   */
+	   maxCharsToDisplay: 30,	  
+	   
+	   /**
+	    * Stores the name of shortened wish list name. 
+	    */
+	   shortName:null,
+	   
+	   /**
+	    * Used by move item to wish list function - this is the order item ID for the item to be removed from shopping cart
+	    */
+	   orderItemId: null,
+	   
+	   /**
+	    * This hash map keeps track of the type and catEntryId of the product. This variable will only reset if the page is reloaded.
+	    */
+	   currentProductInfo: {type:null, catEntryId:null},
+	  
+	/**
+	 * Sets the common parameters for the current page. 
+	 * For example, the language ID, store ID, and catalog ID.
+	 *
+	 * @param {Integer} langId The ID of the language that the store currently uses.
+	 * @param {Integer} storeId The ID of the current store.
+	 * @param {Integer} catalogId The ID of the catalog.
+	 */
+	setCommonParameters:function(langId,storeId,catalogId){
+		this.langId = langId;
+		this.storeId = storeId;
+		this.catalogId = catalogId;
+	}	
+	
+	/**
+	 * Sets the URL used by WishlistSelect_Controller
+	 *
+	 * @param {String} The URL of WishlistSelect_Controller
+	 */
+	,setWishListSelectControllerURL:function(newURL){
+		CommonControllersDeclarationJS.setControllerURL("WishlistSelect_Controller",newURL);
+	}	
+	
+	/**
+	 * Sets the URL used by WishlistDisplay_Controller
+	 *
+	 * @param {String} The URL of WishlistDisplay_Controller
+	 */
+	,setWishListDisplayControllerURL:function(newURL){
+		CommonControllersDeclarationJS.setControllerURL("WishlistDisplay_Controller",newURL);
+	}	
+	
+	/**
+	 *this function display the multiple wish list action popup.
+	 *@param {String} action This variable can be either create, edit or delete.  
+	 */
+	,showPopup:function(action){
+		var popup = dijit.byId("MultipleWishListPopup_"+action+"_popup");
+		if (popup !=null) {			
+			popup.closeButtonNode.style.display='none';//hide the close button inherited from dijit.dialog		
+			closeAllDialogs(); //close other dialogs(quickinfo dialog, etc) before opening this. 				
+			this.hideAddToWishListPanel();//hide the drop down panel
+			popup.show();
+			
+			//calculate the position of the dialog. Show it under the link
+			if (dojo.byId(action+"_popup_link")){
+				var linkPosition = dojo.coords(dojo.byId(action+"_popup_link"),true);
+				var domNode = popup.domNode;
+				if (!this.empty(domNode)) {
+					domNode.style.top=linkPosition.y+linkPosition.h+5+"px";
+					domNode.style.left=linkPosition.x+"px";
+				}
+			}
+		}else {
+			console.debug("MultipleWishListPopup_"+action+"_popup"+" does not exist");
+		}
+	}
+
+	/** Displays the add to wish list and create new wish list down down panel.
+	 * @param {object} event The event to retrieve the input keyboard key. 
+	 * @param {string} relativeId The id of a placeholder element to position the dropdown relatively
+	 * @param {string} contentId The id of the content pane containing the mini shopping cart dropdown contents
+	 */
+	,showAddToListPanel:function(event,relativeId,contentId) {
+		if(event == null || event.keyCode == dojo.keys.DOWN_ARROW){
+			 if (!isAuthenticated) {
+				 this.redirectToSignOn();
+				 return;
+			 }
+			//Calculate the X and Y co-ordinates for the dialog. We don't want it to be at the center of the screen.
+			var c = dojo.coords(dojo.byId(relativeId),true);
+			var x1 = c.x; 
+			var y1 = c.y;
+			
+			if (dojo.locale == 'iw-il' || dojo.locale=='ar-eg') {
+				x1 = c.w + c.x;
+			}
+			
+			if(this.dropDownDlg && dojo.byId(contentId)){
+				//widget is there, but the content inside the widget may have been refreshed. Update it. 
+				this.dropDownDlg.setContent(dojo.byId(contentId).innerHTML);			
+				this.dropDownDlg.y = y1 + c.h;
+				this.dropDownDlg.x = x1;
+			}
+			
+			/* Dialog is not yet created..Create one */
+			if(!this.dropDownDlg){			
+				var pane = document.getElementById(contentId);
+				this.dropDownDlg = new wc.widget.WCDialog({relatedSource: relativeId, x:x1,y:y1},pane);
+				this.dropDownDlg.x=x1;
+				this.dropDownDlg.y = y1 + c.h;
+			}
+	
+			this.dropDownDlg.show();
+			this.dropDownDlg.cancelCloseOnTimeOut();
+		}
+	}
+	 
+	/**
+	 * hides the multiple wish list drop down menu and resets the place holder div
+	 */
+	,hideAddToListPanelQuickInfo:function () {
+		dojo.style('MultipleWishListDropDown',"display","none");
+		dojo.byId('MultipleWishListDropDown').innerHTML='';
+	}
+	 
+	/** Displays the add to wish list and create new wish list drop down panel from inside the quick info popup
+	 * @param {object} event The event to retrieve the input keyboard key
+	 * @param {string} relativeId The id of a placeholder element to position the dropdown relatively
+	 */
+	,showAddToListPanelQuickInfo:function (event,relativeId) {
+		if(event == null || event.keyCode == dojo.keys.DOWN_ARROW){
+			 if (!isAuthenticated) {
+				 this.redirectToSignOn();
+				 return;
+			 }
+			if (!this.empty(dojo.byId('MultipleWishListDropDown').innerHTML)) {				
+				this.hideAddToListPanelQuickInfo();
+			}else {			
+				//force an update to MultipleWishListInQuickInfo_Context, so the wish list drop down inside quick info is updated.
+				wc.render.updateContext("MultipleWishListInQuickInfo_Context", {});
+
+				/**this makes sure that the dropdown does not stay open if the quick info is closed **/
+				dojo.connect(dijit.byId("second_level_category_popup"), 'hide', MultipleWishLists,'hideAddToListPanelQuickInfo');
+			}
+		}
+	}	
+	
+	/**
+	 * Hides the add to wish list and create new wish list drop down panel.
+	 */
+	 ,hideAddToWishListPanel: function() {
+		 if (this.dropDownDlg !=null) this.dropDownDlg.hide(); 
+	 }
+	 
+	 /**
+	  * switch to show a different wish list, by switching to a new wish list, the newly selected wish list will
+	  * also become the default wish list
+	  * @param {string} newListId The wish list id of wish list to be switched to 
+	  */	 
+	,switchList: function(newListId) {
+
+		/*For Handling multiple clicks. */
+		if(!submitRequest()){
+			return;
+		}			
+		cursor_wait();
+		dojo.byId("multipleWishlistController_select").disabled = true;
+		this.updateAfterSwitch = true;
+		this.setAsDefault(newListId); 	
+	}
+	
+	/** update wish list display context after after switching to a new wish list 
+	 * @param {string} newListId The wish list id of new default wish list 
+	 */
+	,updateContextPostSwitch: function(newListId) {
+		if (this.updateAfterSwitch) {
+		wc.render.updateContext('WishlistDisplay_Context', {'giftListId': newListId});
+			wc.render.updateContext('WishlistSelect_Context', {'giftListId': newListId});
+	}
+		this.updateAfterSwitch = false;
+	}
+	
+	 /**
+	  * create a new list
+	  */
+	 ,create:function() {
+		 if (!this.disablePopups && this.empty(this.type) && this.empty(this.catEntryId)) {
+			 //called from quick info
+			 this.isFromQuickInfo = true;
+		 }
+		  
+		 var name = dojo.byId("createForm").name.value;
+		 var maxlength = dojo.byId("newListName").maxLength;
+		if(!MessageHelper.isValidUTF8length(name, maxlength)){ 
+			MessageHelper.displayErrorMessage(MessageHelper.messages["ERR_NAME_TOOLONG"]);
+			return;
+		}
+		 
+		 
+		 if (!this.empty(name)) {			 
+			 if ((this.createFromMyAccount && this.ajaxMyAccountPage ) || (!this.createFromMyAccount && this.ajaxAddToCart)) {
+				var params = {};
+				params["name"] = name;			
+				params["storeId"] = this.storeId;
+				params["langId"] = this.langId;
+				params["catalogId"] = this.catalogId;
+
+				//save the catEntryId, type in the context. It'll be used after the panel is refreshed. 
+				wc.render.updateContext("MultipleWishListNewListContext", {'catEntryId':this.currentProductInfo.catEntryId, 'type':this.currentProductInfo.type});
+				
+				/*For Handling multiple clicks. */
+				if(!submitRequest()){
+					return;
+				}			
+				cursor_wait();
+				wc.service.invoke('AjaxGiftListServiceCreate',params);  //calling the service to save the new list name				
+			}else { // non ajax mode
+				if(!submitRequest()){
+					return;
+				}
+				document.forms["createForm"].URL.value = location.href;
+				document.forms["createForm"].submit();
+			}
+		 } else {
+			 //display error message saying list name is empty. 
+			 MessageHelper.displayErrorMessage(MessageHelper.messages['ERR_NAME_EMPTY']);
+		 }
+	 }
+	  
+	 /**
+	  * edit the name of the wish list currently selected
+	  */
+	 ,edit:function() {
+		var params = {};	 	
+		params["storeId"] = this.storeId;
+		params["catalogId"] = this.catalogId;
+		params["langId"] = this.langId;
+		
+	 	// get new name from input
+		 var newName = dojo.byId("multiple_wishlist_currentName").value;
+		
+		if((dojo.byId("multipleWishlistController_select")!=null && dojo.byId("multipleWishlistController_select")!='undefined') && dojo.byId("multipleWishlistController_select").value != 0){
+			// get wish list ID
+			params["giftListId"] = dojo.byId("multipleWishlistController_select").value;
+			
+			if (!this.empty(newName)) {
+			//calling the service save the new list name
+				if (this.ajaxMyAccountPage) {
+					params["name"] = newName;		
+			 
+					/*For Handling multiple clicks. */
+					if(!submitRequest()){
+						return;
+					}	
+					cursor_wait();
+					wc.service.invoke('AjaxGiftListServiceUpdateDescription',params);  //calling the service to save the new list name
+					
+					//success, close the popup.
+					closeAllDialogs();
+				} else {
+					// non AJAX
+					if(!submitRequest()){
+						return;
+					}
+					dojo.byId("wishlistNameUpdateForm").giftListId.value = dojo.byId("multipleWishlistController_select").value;
+					document.forms["wishlistNameUpdateForm"].submit();
+				}
+		 } else {
+			 //display error message saying list name is empty. 
+			 MessageHelper.displayErrorMessage(MessageHelper.messages['ERR_NAME_EMPTY']);
+		 }
+		} else {
+				 //display error message no wish list is selected for update. 
+				 closeAllDialogs();
+				 MessageHelper.displayErrorMessage(MessageHelper.messages['ERR_ID_EMPTY_UPDATE']);
+		}		
+	 }
+ 
+	 /**
+	  * delete a wish list
+	  */
+	,deleteList:function() {
+		var params = {};	 	
+		params["storeId"] = this.storeId;
+		params["catalogId"] = this.catalogId;
+		params["langId"] = this.langId;
+		
+		if((dojo.byId("multipleWishlistController_select")!=null && dojo.byId("multipleWishlistController_select")!='undefined') && dojo.byId("multipleWishlistController_select").value != 0){
+			// get wish list ID
+			params["giftListId"] = dojo.byId("multipleWishlistController_select").value;
+			 
+			if (this.ajaxMyAccountPage) {
+				/*For Handling multiple clicks. */
+				if(!submitRequest()){
+					return;
+				}	
+				cursor_wait();
+				wc.service.invoke('AjaxGiftListServiceDeleteGiftList',params);  //calling the service to save the new list name
+				closeAllDialogs();
+			} else {
+				// non AJAX
+				if(!submitRequest()){
+					return;
+				}
+				dojo.byId("wishlistDeleteForm").giftListId.value = dojo.byId("multipleWishlistController_select").value;
+				document.forms["wishlistDeleteForm"].submit();
+			}			 
+			 
+			 //success, close the popup.			 
+			 closeAllDialogs();
+			
+		 }else {
+			 MessageHelper.displayErrorMessage(MessageHelper.messages['ERR_ID_EMPTY_DELETE']);
+		 }
+	 }	 
+	  /**
+	   * create a wish list and add this.catEntryId to the wish list
+	   */
+	  ,createDefaultListAndAddItem:function() {
+		  this.addItemAfterCreate = true;
+		  if (this.ajaxMyAccountPage) {
+				var params = {};
+				params["name"] = this.preferredDefaultWishListName; 
+				params["storeId"] = this.storeId;
+				params["langId"] = this.langId;
+				params["catalogId"] = this.catalogId;
+
+				//save the catEntryId, type in the context. It'll be used after the panel is refreshed. 
+				wc.render.updateContext("MultipleWishListNewListContext", {'catEntryId':this.catEntryId, 'type':this.type});
+				wc.service.invoke('AjaxGiftListServiceCreate',params);  //calling the service to save the new list name
+		  }else {
+			  
+		  }		  		
+	  }
+	  	     
+	 /**
+	  * add an item/product/bundle/package to a wish list
+	  * @param {string} entitledItemId id of the item/product/bundle/package be added
+	  */
+	  ,addToList:function(entitledItemId){
+		 if (!isAuthenticated) {
+			 this.redirectToSignOn();
+			 return;
+		 }
+		 
+		if (this.empty(this.type) && this.empty(entitledItemId)) {
+			//type and entitledItemId are null, call is from quick info
+			this.isFromQuickInfo = true;
+			//retrieve the type from the JSON returned by GetCatalogEntryDetailsByID
+			this.type = responseJSON.catEntryType;	
+		}
+
+		
+		if (this.empty(this.defaultListId) && (this.isFromQuickInfo || !this.empty(entitledItemId)) && !this.addItemAfterCreate && this.empty(this.defaultListId)) {
+			this.catEntryId = entitledItemId;
+			this.createDefaultListAndAddItem();
+			return;
+		}
+		
+		this.addToListHelper(this.defaultListId, entitledItemId);
+
+	  }
+	 
+	  /**
+	   * This method is the extension of addToList. It invokes services/submits forms to add an item to a wish list
+	   * @param {string} listId the id of the wish list
+	   * @param {string} entitledItemId id of the item/product/bundle/package be added
+	   */
+	  ,addToListHelper:function(listId,entitledItemId) {
+			if (this.ajaxAddToCart) {
+				var params={};
+				params["storeId"] = this.storeId;
+				params["langId"] = this.langId;
+				params["catalogId"] = this.catalogId;
+				//always use the defaultListId. The ids in the form can be out of sync.
+				params["giftListId"] = this.defaultListId;
+				
+				if (this.type == 'bundle') {			
+					var catEntryArray = document.forms['OrderItemAddForm_'+entitledItemId].catEntryIDS.value.toString().split(',');
+					for(var i = 0; i < catEntryArray.length; i++){
+						if (this.empty(catEntryArray[i])){
+							MessageHelper.displayErrorMessage(MessageHelper.messages['ERR_RESOLVING_SKU']);
+							return;
+						}
+						params["catEntryId_"+i]=catEntryArray[i];
+						params["quantity_"+i]=1;
+					}				
+				}else if(this.type=='product') {
+					var entitledItemJSON;
+					var catalogEntryId;
+					if (this.isFromQuickInfo) {					
+						entitledItemJSON = responseJSON.productAttributes; 
+					}else {				
+						entitledItemJSON = eval('('+ dojo.byId("entitledItem_"+entitledItemId).innerHTML +')');
+					}
+					categoryDisplayJS.setEntitledItems(entitledItemJSON);																	
+					catalogEntryId = categoryDisplayJS.getCatalogEntryId();
+					
+					if (this.empty(catalogEntryId)){
+						MessageHelper.displayErrorMessage(MessageHelper.messages['ERR_RESOLVING_SKU']);
+						return;
+					}
+					params["catEntryId"]=catalogEntryId;
+					params["quantity"]=1;
+				}else if (this.type=='package' || this.type=='item' || this.type=='dynamicKit') {
+					if (this.isFromQuickInfo) {
+						params["catEntryId"] = responseJSON.catalogEntry.catalogEntryIdentifier.uniqueID;
+					}else {
+						params["catEntryId"]=entitledItemId;					
+					}
+	
+					params["quantity"]=1;
+				}
+				cursor_wait();
+				wc.service.invoke('AjaxGiftListServiceAddItem',params);
+			}else {			
+				if (this.isFromQuickInfo) {
+					//Normally, entitledItemId is not passed to the quick info. We have to get it from JSON returned by GetCatalogEntryDetailsByID.
+					entitledItemId = responseJSON.catalogEntry.catalogEntryIdentifier.uniqueID;
+				}
+				var form = document.forms['OrderItemAddForm_'+entitledItemId];					
+				form.action='GiftListServiceAddItem';
+				if (!this.empty(listId)) {
+					form.giftListId.value=listId;	
+				}else {
+					form.giftListId.value=this.defaultListId;
+				}
+				
+				if (this.type !='bundle') {form.quantity.value=1;}
+										
+				if (this.ajaxMyAccountPage){
+					form.page.value="customerlinkwishlist";
+					form.URL.value='GiftListServiceChangeGiftListStatus?giftListId='+form.giftListId.value+'&giftListState=Default&URL=AjaxLogonForm';
+				}else{
+					form.URL.value='GiftListServiceChangeGiftListStatus?giftListId='+form.giftListId.value+'&giftListState=Default&URL=NonAjaxAccountWishListDisplayView';
+				}
+				
+				if (this.type == 'product') {
+					var entitledItemJSON;
+					if (this.isFromQuickInfo) {
+						entitledItemJSON = responseJSON.productAttributes; 
+					}else {
+						entitledItemJSON = eval('('+ dojo.byId("entitledItem_"+entitledItemId).innerHTML +')');
+					}
+					categoryDisplayJS.setEntitledItems(entitledItemJSON);
+					form.catEntryId.value = categoryDisplayJS.getCatalogEntryId();					
+				}else if (this.type == 'bundle') {	
+					var catEntryArray = document.forms['OrderItemAddForm_'+entitledItemId].catEntryIDS.value.toString().split(',');
+					for(var i = 0; i < catEntryArray.length; i++){
+						if (this.empty(catEntryArray[i])){
+							MessageHelper.displayErrorMessage(MessageHelper.messages['ERR_RESOLVING_SKU']);
+							return;
+						}
+						form["catEntryId_"+(i+1)].value=catEntryArray[i];
+						form["quantity_"+(i+1)].value=1;
+					}
+				}else if (this.type=='package' || this.type=='item' || this.type=='dynamicKit') {
+					form.catEntryId.value = entitledItemId;	
+				}
+				
+				form.submit();
+			}
+			
+			//after adding an item, we want to reset the following parameters so subsequent addToList() calls receive correct parameters. 
+			this.type=null;
+			this.isFromQuickInfo = null;
+	  }
+	  
+	 /**
+	  * create a new list and move an order item to the new wish list
+		* @param {string} entitledItemId id of the item to be added
+		* @param {string} orderItemId the order item id of the item to be removed from shopping cart
+	  */
+	 ,addToNewListAndDelete:function(entitledItemId, orderItemId) {
+		if (!isAuthenticated) {
+			 this.redirectToSignOn();
+			 return;
+		 }	
+		 
+	 	this.orderItemId = orderItemId;
+		var params = {};
+		params["name"] = this.preferredDefaultWishListName;
+		params["storeId"] = this.storeId;
+		params["langId"] = this.langId;
+		params["catalogId"] = this.catalogId;
+		params["catEntryId"] = entitledItemId;					
+		params["quantity"] = 1;
+
+		/*For Handling multiple clicks. */
+		if(!submitRequest()){
+			return;
+		}			
+		cursor_wait();
+		wc.service.invoke('AjaxNewWishListAddAndDeleteFromCart',params);  		
+	}
+	
+	 /**
+	  * create move an order item to the default wish list
+		* @param {string} entitledItemId id of the item to be added
+		* @param {string} orderItemId the order item id of the item to be removed from shopping cart
+	  */	  
+	,addToListAndDelete:function(entitledItemId, orderItemId) {
+		this.orderItemId = orderItemId;
+		
+		if (!isAuthenticated) {
+			 this.redirectToSignOn();
+			 return;
+		 }	  	
+		if (this.ajaxAddToCart) {
+			var params={};
+			params["storeId"] = this.storeId;
+			params["langId"] = this.langId;
+			params["catalogId"] = this.catalogId;
+			params["giftListId"] = this.defaultListId;
+			params["orderItemId"] = orderItemId;
+			params["catEntryId"]=entitledItemId;					
+			params["quantity"]=1;
+			cursor_wait();
+			wc.service.invoke('AjaxWishListAddAndDeleteFromCart',params);
+		}
+
+	}
+	
+		/**
+		* delete an order item from the shopping cart
+		*/
+	,deleteItemFromCart:function() {
+		CheckoutHelperJS.deleteFromCart(this.orderItemId, true);
+	}
+	  
+	 /**
+	  * remove item from a wish list
+	  * @param {long} giftItemId ID of the wish list item to be removed
+	  */
+	 ,removeItem:function(giftItemId) {
+			var params = {};	 	
+			params["storeId"] = this.storeId;
+			params["catalogId"] = this.catalogId;
+			params["langId"] = this.langId;
+			params["quantity"] = 0;
+			
+			if((dojo.byId("multipleWishlistController_select")!=null && dojo.byId("multipleWishlistController_select")!='undefined') && dojo.byId("multipleWishlistController_select").value != 0){
+				// get wish list ID
+				params["giftListId"] = dojo.byId("multipleWishlistController_select").value;
+			
+				if (!this.empty(giftItemId)) {
+					if (this.ajaxMyAccountPage) {
+						params["giftListItemId"] = giftItemId;		
+	
+						/*For Handling multiple clicks. */
+						if(!submitRequest()){
+							return;
+						}	
+						
+						cursor_wait();
+						wc.service.invoke('AjaxGiftListServiceRemoveItem',params);  //calling the service to save the new list name
+					}
+				}
+			}
+		} 
+
+	/**
+	* This function is used to set the selected wish list ID for the email form.
+	* @param {string} formId  The formId of the email form.
+	*/
+	,getWishListIdForEmail:function (formId) {
+		var form = document.getElementById(formId);
+		if((dojo.byId("multipleWishlistController_select")!=null && dojo.byId("multipleWishlistController_select")!='undefined') && dojo.byId("multipleWishlistController_select").value != 0){
+			form.giftListId.value = dojo.byId("multipleWishlistController_select").value;
+		}
+	}
+	
+	/**
+	* This function is used to check user input in the wish list email form, if user input is valid, it invokes the InterestItemListMessage service to send out the email.
+	* @param {string} formId  The formId of the email form.
+	*/	
+	,checkSOAEmailForm:function (formId){
+		var form = document.getElementById(formId);
+		form.sender_name.value = form.sender_name.value.replace(/^\s+/g, "");
+		form.recipient.value = form.recipient.value.replace(/^\s+/g, "");	
+		
+		if (form.recipient.value == '') {
+			MessageHelper.formErrorHandleClient(document.getElementById('SendWishListForm_Recipient_Email').id, MessageHelper.messages["WISHLIST_MISSINGEMAIL"]);return;
+		}
+		if (! MessageHelper.isValidEmail(form.recipient.value)){
+			MessageHelper.formErrorHandleClient(document.getElementById('SendWishListForm_Recipient_Email').id, MessageHelper.messages["WISHLIST_INVALIDEMAILFORMAT"]);return;
+		}
+		if (form.sender_name.value == ''){
+			 MessageHelper.formErrorHandleClient(document.getElementById('SendWishListForm_Sender_Name').id, MessageHelper.messages["WISHLIST_MISSINGNAME"]);return;
+		}
+		if (! MessageHelper.isValidEmail(form.sender_email.value)){
+			MessageHelper.formErrorHandleClient(document.getElementById('SendWishListForm_Sender_Email').id, MessageHelper.messages["WISHLIST_INVALIDEMAILFORMAT"]);return;
+		}
+		if(form.giftListId.value=='' || form.wishListHasItem.value=="false"){
+			MessageHelper.displayErrorMessage(MessageHelper.messages["WISHLIST_EMPTY"]);return;
+		}
+		
+		// maps email input to param required by AjaxGiftListAnnouncement
+		form.recipientEmail.value = form.recipient.value;
+		form.senderName.value = form.sender_name.value;
+		if (form.sender_email.value != '') {
+			form.senderEmail.value = form.sender_email.value;
+		}
+		if (form.wishlist_message.value != '') {
+			form.message.value = form.wishlist_message.value;
+		}
+		
+		/* Handles multiple clicks */
+		if(!submitRequest()){
+			return;
+		}
+		if (this.ajaxMyAccountPage) {
+			cursor_wait();
+			wc.service.getServiceById("AjaxGiftListAnnouncement").formId = formId;
+			wc.service.invoke("AjaxGiftListAnnouncement");
+		} else {
+			form.submit();
+		}			
+		
+		// reset values
+		form.senderEmail.value = "SOAWishListEmail@SOAWishListEmail.com";
+		form.message.value = "SOAWishListEmail";
+	}
+	
+	 /**
+	  * set a specified wish list as default wish list	 
+	  *	@param {long} giftListId ID of the wish list to be set as default
+	  */
+		,setAsDefault:function(giftListId) {
+			if (this.ajaxMyAccountPage) {
+			var params = {};	 	
+			params["storeId"] = this.storeId;
+			params["catalogId"] = this.catalogId;
+			params["langId"] = this.langId;
+			params["giftListId"] = giftListId;
+			params["giftListState"] = 'Default';
+			cursor_wait();
+			wc.service.invoke('AjaxGiftListServiceChangeGiftListStatus',params);  
+			} else {
+				var form = document.getElementById('switchWishListForm');
+				form.giftListId.value = giftListId;
+				form.submit();
+			}
+		}
+	 
+	 /**
+	  *return true if a string is undefined or null
+	  *@param {string} String to be checked
+	  */
+	 ,empty:function(str) {
+		return (str == null || str == undefined || str==""); 
+	 }
+	 
+	 /**
+	  * set the createFromMyAccount flag
+	  * @param {boolean} val: true if the wish list create request is from MyAccount, false otherwise. 
+	  */
+	 ,setCreateFromMyAccount:function(val) {
+		 this.createFromMyAccount = val;
+	 }
+				 
+	 /**
+	  * Set the page to ajax or non ajax mode. 
+	  * @param {boolean} val true if this page is ajax, false otherwise. 
+	  */
+	 ,setAjaxMyAccountPage:function(val){
+		  this.ajaxMyAccountPage = val;
+	 }	  	 
+	  
+	 /**
+	  * set the multiple wish list mode.  Multiple wish list features are in ajax mode if ajaxAddToCart is true.
+	  * @param {boolean} val true if multiple wish list features are to be run in ajax mode
+	  */
+	  ,setAjaxAddToCart:function(val) {
+		  this.ajaxAddToCart = val;
+	  }
+	  
+	 /**
+	  * saves the catalog entry id
+	  */ 
+	  ,setCatEntryId:function(id) {
+		  this.catEntryId = id;
+	  }
+	  
+	  /**
+	   * saves the type of the catalog entry. It can be either product,item,bundle or package.
+	   * @param {string} type Type of the catalog entry
+	   */
+	  ,setType:function(type) {
+		  this.type = type;
+	  }	  
+	   
+	  /**
+	   * set the value of isFromQuickInfo flag
+	   * @param {boolean} val whether multiple wish list functions are called from inside the quick info
+	   */
+	   ,setIsFromQuickInfo:function(val) {
+		   this.isFromQuickInfo = val;
+	   }
+	  
+	   /**
+	    * return the value of the isFromQuickInfo flag
+	    */
+	  ,getIsFromQuickInfo:function() {
+		  return this.isFromQuickInfo;
+	  }
+	    
+	  
+	   /**
+	    * sets whether a popup should be shown after a wish list is created
+	    * @param {boolean} val whether a popup is shown after a wish list is created
+	    */
+	  ,setDisablePopups:function(val) {
+		  this.disablePopups = val;
+	  } 
+	    
+	  /**
+	   * sets the default wish list Id
+	   * @param {String} id the default wish list id
+	   */
+	   ,setDefaultListId:function(id) {
+		   this.defaultListId = id;
+	   }
+	   
+	   /**
+	    * returns the default wish list Id
+	    */
+	   ,getDefaultListId:function() {
+		   return this.defaultListId;
+	   }
+	   
+	   /**
+	    * sets the preferred default wish list name
+	    * @param {String} name default wish list name
+	    */
+	   ,setPreferredDefaultWishListName: function (name) {
+		   this.preferredDefaultWishListName = name;
+	   }
+	   
+	   /**
+	    * Sets the wish list prefix. It's the text displayed before the wish list name.
+	    * @param {String} prefix wish list prefix
+	    */ 
+	   ,setWishListPrefix: function (prefix) {
+		   this.wishListPrefix = prefix;
+	   }
+	    
+	   /**
+	    * Sets the wish list name. This name will be displayed if the wish list name is long.
+	    * @param {String} shortName wish list name
+	    */ 
+		 ,setShortName:function(shortName) {
+			 this.shortName = shortName;
+		 }
+
+	  /**
+	   * redirect users to the sign on page
+	   */
+	   ,redirectToSignOn:function() {
+		   setWarningMessageCookie('WISHLIST_GUEST_ADDITEM');
+		   var currentURL = encodeURIComponent(location.href);
+		   document.location.href = "LogonForm?myAcctMain=1&storeId=" + this.storeId + "&catalogId=" + this.catalogId + "&langId=" + this.langId +"&URL="+currentURL;
+	   }	   
+	   
+	   /**
+	    * updates the name of the default wish list. If the name is longer than this.maxCharsToDisplay, dots will be appended as suffix.
+	    * @param {string} linkId the unique ID of the div/span
+	    * @param {string} name name of the default with list
+	    */
+	   ,updateDefaultListName:function(linkId, name) {	    	
+	    	name = name.toString();
+	    	if (this.empty(name)) { return; }
+	    	
+	    	var shortenedName = name;
+	    	    	
+	    	if (dojo.byId(linkId)) {	    		
+		    	if(name.length > this.maxCharsToDisplay) {
+		    		shortenedName = name.substring(0,this.maxCharsToDisplay);
+		    		dojo.byId(linkId).innerHTML=this.shortName.replace("$1",shortenedName); //display the short name
+		    	}else {
+		    		dojo.byId(linkId).innerHTML=this.wishListPrefix.replace("$1",name); //display long name
+		    	}
+		    		    	
+		    		dojo.byId(linkId).title = this.wishListPrefix.replace("$1",name); //use the long name for the title attribute
+	    	}
+	   }	    
+	    
+		/**
+		 * Sets the variable that controls how many characters from the wish list name are displayed before dots are added as suffix
+		 * @param {Integer} num How many characters to display
+		 */
+		 ,setMaxCharsToDisplay:function(num){
+			this.maxCharsToDisplay = num
+		 }
+
+}
